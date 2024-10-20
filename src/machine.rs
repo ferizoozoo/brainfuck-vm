@@ -1,9 +1,9 @@
 use std::io::{Read, Write};
 
-struct Machine {
+pub struct Machine {
     code: String,
     ip: usize,
-    memory: [i64; 30000],
+    memory: [i8; 30000],
     dp: usize,
     input: Box<dyn Read>,
     output: Box<dyn Write>,
@@ -11,7 +11,7 @@ struct Machine {
 }
 
 impl Machine {
-    fn new(code: String, input: Box<dyn Read>, output: Box<dyn Write>) -> Self {
+    pub fn new(code: String, input: Box<dyn Read>, output: Box<dyn Write>) -> Self {
         return Self {
             code,
             ip: 0,
@@ -19,11 +19,11 @@ impl Machine {
             dp: 0,
             input,
             output,
-            buf: Vec::with_capacity(1),
+            buf: vec![0],
         };
     }
 
-    fn execute(&mut self) {
+    pub fn execute(&mut self) {
         while self.ip < self.code.len() {
             if let Some(instruction) = self.code.chars().nth(self.ip) {
                 match instruction {
@@ -33,6 +33,40 @@ impl Machine {
                     '<' => self.dp -= 1,
                     ',' => self.read_char(),
                     '.' => self.put_char(),
+                    '[' => {
+                        if self.memory[self.dp] == 0 {
+                            let mut depth = 1;
+
+                            while depth != 0 {
+                                self.ip += 1;
+
+                                if let Some(ch) = self.code.chars().nth(self.ip) {
+                                    match ch {
+                                        '[' => depth += 1,
+                                        ']' => depth -= 1,
+                                        _ => (),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ']' => {
+                        if self.memory[self.dp] != 0 {
+                            let mut depth = 1;
+
+                            while depth != 0 {
+                                self.ip -= 1;
+
+                                if let Some(ch) = self.code.chars().nth(self.ip) {
+                                    match ch {
+                                        '[' => depth -= 1,
+                                        ']' => depth += 1,
+                                        _ => (),
+                                    }
+                                }
+                            }
+                        }
+                    }
                     _ => (),
                 }
 
@@ -48,7 +82,7 @@ impl Machine {
                     panic!("wrong num bytes read");
                 }
 
-                self.memory[self.dp] = self.buf[0] as i64;
+                self.memory[self.dp] = self.buf[0] as i8;
             }
             Err(e) => panic!("{}", e),
         }
