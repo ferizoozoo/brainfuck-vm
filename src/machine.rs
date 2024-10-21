@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 
-pub struct Machine {
-    code: String,
+use crate::instruction::{Instruction, InstructionType};
+
+pub struct Machine<'a> {
+    code: &'a Vec<Instruction>,
     ip: usize,
     memory: [i8; 30000],
     dp: usize,
@@ -10,8 +12,8 @@ pub struct Machine {
     buf: Vec<u8>,
 }
 
-impl Machine {
-    pub fn new(code: String, input: Box<dyn Read>, output: Box<dyn Write>) -> Self {
+impl<'a> Machine<'a> {
+    pub fn new(code: &'a Vec<Instruction>, input: Box<dyn Read>, output: Box<dyn Write>) -> Self {
         return Self {
             code,
             ip: 0,
@@ -25,53 +27,35 @@ impl Machine {
 
     pub fn execute(&mut self) {
         while self.ip < self.code.len() {
-            if let Some(instruction) = self.code.chars().nth(self.ip) {
-                match instruction {
-                    '+' => self.memory[self.dp] += 1,
-                    '-' => self.memory[self.dp] -= 1,
-                    '>' => self.dp += 1,
-                    '<' => self.dp -= 1,
-                    ',' => self.read_char(),
-                    '.' => self.put_char(),
-                    '[' => {
+            if let Some(instruction) = self.code.get(self.ip) {
+                match instruction.ins_type {
+                    InstructionType::Plus => self.memory[self.dp] += instruction.argument,
+                    InstructionType::Minus => self.memory[self.dp] -= instruction.argument,
+                    InstructionType::Right => self.dp += instruction.argument as usize,
+                    InstructionType::Left => self.dp -= instruction.argument as usize,
+                    InstructionType::ReadChar => {
+                        for _ in 0..instruction.argument {
+                            self.read_char();
+                        }
+                    }
+                    InstructionType::PutChar => {
+                        for _ in 0..instruction.argument {
+                            self.put_char();
+                        }
+                    }
+                    InstructionType::JumpIfZero => {
                         if self.memory[self.dp] == 0 {
-                            let mut depth = 1;
-
-                            while depth != 0 {
-                                self.ip += 1;
-
-                                if let Some(ch) = self.code.chars().nth(self.ip) {
-                                    match ch {
-                                        '[' => depth += 1,
-                                        ']' => depth -= 1,
-                                        _ => (),
-                                    }
-                                }
-                            }
+                            self.ip = instruction.argument as usize;
                         }
                     }
-                    ']' => {
+                    InstructionType::JumpIfNotZero => {
                         if self.memory[self.dp] != 0 {
-                            let mut depth = 1;
-
-                            while depth != 0 {
-                                self.ip -= 1;
-
-                                if let Some(ch) = self.code.chars().nth(self.ip) {
-                                    match ch {
-                                        '[' => depth -= 1,
-                                        ']' => depth += 1,
-                                        _ => (),
-                                    }
-                                }
-                            }
+                            self.ip = instruction.argument as usize;
                         }
                     }
-                    _ => (),
                 }
-
-                self.ip += 1;
             }
+            self.ip += 1;
         }
     }
 
